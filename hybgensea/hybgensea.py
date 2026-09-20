@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 import numpy as np
 import sys
@@ -54,6 +55,7 @@ def solve_cvrp_dist_mtx(
     num_vehicles=-1,
     initial_solutions=None,
     initial_solutions_allow_infeasible=False,
+    extract_all_feasible=True,
     verbose=True,
     log_callback=None,
     **ap_kwargs,
@@ -78,12 +80,17 @@ def solve_cvrp_dist_mtx(
             number of routes must not exceed the fleet size.
         initial_solutions_allow_infeasible: accept seeds that breach the
             capacity or duration limits (rejected by default)
+        extract_all_feasible: keep the whole final feasible subpopulation, not
+            just the best solution. Members are boxed into Python lazily, so
+            this costs a bounded copy and nothing more until they are read.
         verbose: print solver log
         log_callback: callable receiving each log line
         **ap_kwargs: algorithm parameters (seed, timeLimit, nbGranular, etc.)
 
     Returns:
-        RoutingSolution with .cost, .time, .routes, .n_routes, .log
+        RoutingSolution with .cost, .time, .routes, .n_routes, .log,
+        .n_feasible and .feasible_population (None if extract_all_feasible
+        is False).
     """
     dist_mtx = np.ascontiguousarray(dist_mtx, dtype=np.float64)
     demands = np.ascontiguousarray(demands, dtype=np.float64)
@@ -115,7 +122,7 @@ def solve_cvrp_dist_mtx(
         *_ap_c_args(**ap_kwargs),
         bool(verbose), log_callback,
         _coerce_initial_solutions(initial_solutions),
-        bool(initial_solutions_allow_infeasible),
+        bool(initial_solutions_allow_infeasible), bool(extract_all_feasible),
     )
     return RoutingSolution(sol)
 
@@ -131,6 +138,7 @@ def solve_cvrp(
     num_vehicles=-1,
     initial_solutions=None,
     initial_solutions_allow_infeasible=False,
+    extract_all_feasible=True,
     rounding=True,
     verbose=True,
     log_callback=None,
@@ -155,13 +163,18 @@ def solve_cvrp(
             number of routes must not exceed the fleet size.
         initial_solutions_allow_infeasible: accept seeds that breach the
             capacity or duration limits (rejected by default)
+        extract_all_feasible: keep the whole final feasible subpopulation, not
+            just the best solution. Members are boxed into Python lazily, so
+            this costs a bounded copy and nothing more until they are read.
         rounding: round Euclidean distances to integers
         verbose: print solver log
         log_callback: callable receiving each log line
         **ap_kwargs: algorithm parameters (seed, timeLimit, nbGranular, etc.)
 
     Returns:
-        RoutingSolution with .cost, .time, .routes, .n_routes, .log
+        RoutingSolution with .cost, .time, .routes, .n_routes, .log,
+        .n_feasible and .feasible_population (None if extract_all_feasible
+        is False).
     """
     x_coords = np.ascontiguousarray(x_coords, dtype=np.float64)
     y_coords = np.ascontiguousarray(y_coords, dtype=np.float64)
@@ -187,7 +200,7 @@ def solve_cvrp(
         *_ap_c_args(**ap_kwargs),
         bool(verbose), log_callback,
         _coerce_initial_solutions(initial_solutions),
-        bool(initial_solutions_allow_infeasible),
+        bool(initial_solutions_allow_infeasible), bool(extract_all_feasible),
     )
     return RoutingSolution(sol)
 
@@ -199,6 +212,7 @@ def solve_tsp(
     *,
     initial_solutions=None,
     initial_solutions_allow_infeasible=False,
+    extract_all_feasible=True,
     rounding=True,
     verbose=True,
     log_callback=None,
@@ -219,6 +233,7 @@ def solve_tsp(
             num_vehicles=1,
             initial_solutions=initial_solutions,
             initial_solutions_allow_infeasible=initial_solutions_allow_infeasible,
+            extract_all_feasible=extract_all_feasible,
             verbose=verbose, log_callback=log_callback,
             **ap_kwargs,
         )
@@ -233,9 +248,73 @@ def solve_tsp(
             rounding=rounding, num_vehicles=1,
             initial_solutions=initial_solutions,
             initial_solutions_allow_infeasible=initial_solutions_allow_infeasible,
+            extract_all_feasible=extract_all_feasible,
             verbose=verbose, log_callback=log_callback,
             **ap_kwargs,
         )
+
+
+class Individual:
+    """A member of the final feasible subpopulation.
+
+    An immutable copy, detached from the solver's population: unlike upstream's
+    Individual it cannot be mutated or re-evaluated. Because every member of that
+    subpopulation is feasible, cost is the plain route distance, with no penalty
+    term, and so is comparable across runs.
+
+    Routes are converted to Python on first access and cached, so reading only
+    cost or n_routes never pays for them.
+    """
+
+    __slots__ = ("_member", "_routes", "cost", "n_routes")
+
+    def __init__(self, member):
+        self.cost = member.cost
+        self.n_routes = member.n_routes
+        self._member = member
+        self._routes = None
+
+    @property
+    def routes(self):
+        """Routes as lists of 1-based client indices, valid as an initial_solutions entry."""
+        if self._routes is None:
+            self._routes = self._member.routes
+        return self._routes
+
+    def __repr__(self):
+        return f"Individual(cost={self.cost}, n_routes={self.n_routes})"
+
+
+class _SubPopulation(Sequence):
+    """Lazy view of a subpopulation, ordered best first.
+
+    Indexing materialises one Individual, so [:k] costs k and len() costs nothing.
+    """
+
+    __slots__ = ("_cache", "_get", "_n")
+
+    def __init__(self, n, get):
+        self._n = n
+        self._get = get
+        self._cache = {}
+
+    def __len__(self):
+        return self._n
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(self._n))]
+        if index < 0:
+            index += self._n
+        if not 0 <= index < self._n:
+            raise IndexError(index)
+        individual = self._cache.get(index)
+        if individual is None:
+            individual = self._cache[index] = Individual(self._get(index))
+        return individual
+
+    def __repr__(self):
+        return f"<_SubPopulation of {self._n}>"
 
 
 class RoutingSolution:
@@ -243,8 +322,13 @@ class RoutingSolution:
         self.cost = sol.cost
         self.time = sol.time
         self.routes = sol.routes
-        self.n_routes = len(sol.routes)
+        self.n_routes = len(self.routes)
         self.log = sol.log
+        self.n_feasible = sol.n_feasible
+        self.feasible_population = (
+            _SubPopulation(sol.n_feasible, sol.feasible_member)
+            if sol.extracted_all_feasible else None
+        )
 
 
 # --- Legacy API (kept for backward compatibility with tests/other users) ---
@@ -304,6 +388,7 @@ class Solver:
             initial_solutions=data.get("initial_solutions"),
             initial_solutions_allow_infeasible=data.get(
                 "initial_solutions_allow_infeasible", False),
+            extract_all_feasible=data.get("extract_all_feasible", True),
             verbose=self.verbose,
             log_callback=self.log_callback,
             **self._ap_kwargs(),

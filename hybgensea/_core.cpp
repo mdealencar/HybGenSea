@@ -47,11 +47,31 @@ public:
     const std::string& get_log() const { return full_log_; }
 };
 
+// One member of the final feasible subpopulation, copied out of the solver.
+// Membership in that subpopulation is exactly eval.isFeasible, so both excesses are
+// zero and eval.penalizedCost equals eval.distance: cost alone carries the whole
+// evaluation and stays comparable across runs, unlike a penalized infeasible cost.
+struct PyIndividual {
+    std::vector<std::vector<int>> routes;
+    double cost;
+    int n_routes;
+};
+
 struct PySolution {
     double cost;
     double time;
     std::vector<std::vector<int>> routes;
     std::string log;
+    std::vector<PyIndividual> feasible;
+    size_t n_feasible;
+    bool extracted_all_feasible;
+
+    const PyIndividual& feasible_member(size_t index) const {
+        if (index >= feasible.size()) {
+            throw nb::index_error();
+        }
+        return feasible[index];
+    }
 };
 
 static AlgorithmParameters make_ap(
@@ -89,7 +109,8 @@ static void seed_population(Genetic& solver, Params& params,
 }
 
 // Extract PySolution from a completed Genetic solver (must be called while owning the data).
-static PySolution extract_solution(Population& population, const Params& params) {
+static PySolution extract_solution(Population& population, const Params& params,
+                                  bool extract_all_feasible) {
     PySolution result{};
     const Individual* best = population.getBestFound();
     if (best == nullptr) {
@@ -102,15 +123,50 @@ static PySolution extract_solution(Population& population, const Params& params)
             result.routes.push_back(route);
         }
     }
+
+    // getFeasibleSubpop() copies pointers only, so the count is free either way.
+    // The individuals themselves are copied into plain structs here, inside the scope
+    // that owns them, and never escape as pointers. Boxing into Python is deferred to
+    // first access on the Python side, so an unread population costs only this memcpy.
+    const std::vector<const Individual*> feasible = population.getFeasibleSubpop();
+    result.n_feasible = feasible.size();
+    result.extracted_all_feasible = extract_all_feasible;
+    if (extract_all_feasible) {
+        result.feasible.reserve(feasible.size());
+        for (const Individual* indiv : feasible) {
+            PyIndividual member{};
+            member.cost = indiv->eval.penalizedCost;
+            member.n_routes = indiv->eval.nbRoutes;
+            for (const auto& route : indiv->chromR) {
+                if (!route.empty()) {
+                    member.routes.push_back(route);
+                }
+            }
+            result.feasible.push_back(std::move(member));
+        }
+    }
     return result;
 }
 
 NB_MODULE(_core, m) {
+    // routes is a property, not def_ro: the list caster rebuilds it on every read, so
+    // exposing the vector as a member would box the whole subpopulation each access.
+    nb::class_<PyIndividual>(m, "_PyIndividual")
+        .def_ro("cost", &PyIndividual::cost)
+        .def_ro("n_routes", &PyIndividual::n_routes)
+        .def_prop_ro("routes", [](const PyIndividual& self) { return self.routes; });
+
     nb::class_<PySolution>(m, "_PySolution")
         .def_rw("cost", &PySolution::cost)
         .def_rw("time", &PySolution::time)
         .def_rw("routes", &PySolution::routes)
-        .def_rw("log", &PySolution::log);
+        .def_rw("log", &PySolution::log)
+        .def_ro("n_feasible", &PySolution::n_feasible)
+        .def_ro("extracted_all_feasible", &PySolution::extracted_all_feasible)
+        // reference_internal wraps the member in place and keeps the parent alive,
+        // instead of copy-constructing every element the way a vector member would.
+        .def("feasible_member", &PySolution::feasible_member,
+             nb::arg("index"), nb::rv_policy::reference_internal);
 
     m.def("default_algorithm_parameters", []() {
         AlgorithmParameters ap = default_algorithm_parameters();
@@ -150,7 +206,8 @@ NB_MODULE(_core, m) {
                             bool verbose,
                             nb::handle log_callback,
                             std::vector<std::vector<std::vector<int>>> initial_solutions,
-                            bool initial_solutions_allow_infeasible) {
+                            bool initial_solutions_allow_infeasible,
+                            bool extract_all_feasible) {
         const int n = static_cast<int>(x.shape(0));
         AlgorithmParameters ap = make_ap(nbGranular, mu, lambda_, nbElite, nbClose,
                                          nbIterPenaltyManagement, targetFeasible,
@@ -185,7 +242,7 @@ NB_MODULE(_core, m) {
             seed_population(solver, params, initial_solutions,
                             initial_solutions_allow_infeasible);
             solver.run();
-            result = extract_solution(solver.population, params);
+            result = extract_solution(solver.population, params, extract_all_feasible);
         }
         result.log = buf.get_log();
         return result;
@@ -201,7 +258,8 @@ NB_MODULE(_core, m) {
     nb::arg("useSwapStar"),
     nb::arg("verbose"), nb::arg("log_callback").none() = nb::none(),
     nb::arg("initial_solutions") = std::vector<std::vector<std::vector<int>>>(),
-    nb::arg("initial_solutions_allow_infeasible") = false);
+    nb::arg("initial_solutions_allow_infeasible") = false,
+    nb::arg("extract_all_feasible") = true);
 
     // solve_cvrp_dist_mtx: with pre-computed distance matrix (zero-copy from numpy)
     m.def("solve_cvrp_dist_mtx", [](nb::ndarray<double, nb::ndim<1>, nb::c_contig> x,
@@ -221,7 +279,8 @@ NB_MODULE(_core, m) {
                                      bool verbose,
                                      nb::handle log_callback,
                                      std::vector<std::vector<std::vector<int>>> initial_solutions,
-                                     bool initial_solutions_allow_infeasible) {
+                                     bool initial_solutions_allow_infeasible,
+                                     bool extract_all_feasible) {
         const int n = static_cast<int>(x.shape(0));
         AlgorithmParameters ap = make_ap(nbGranular, mu, lambda_, nbElite, nbClose,
                                          nbIterPenaltyManagement, targetFeasible,
@@ -244,7 +303,7 @@ NB_MODULE(_core, m) {
             seed_population(solver, params, initial_solutions,
                             initial_solutions_allow_infeasible);
             solver.run();
-            result = extract_solution(solver.population, params);
+            result = extract_solution(solver.population, params, extract_all_feasible);
         }
         result.log = buf.get_log();
         return result;
@@ -261,5 +320,6 @@ NB_MODULE(_core, m) {
     nb::arg("useSwapStar"),
     nb::arg("verbose"), nb::arg("log_callback").none() = nb::none(),
     nb::arg("initial_solutions") = std::vector<std::vector<std::vector<int>>>(),
-    nb::arg("initial_solutions_allow_infeasible") = false);
+    nb::arg("initial_solutions_allow_infeasible") = false,
+    nb::arg("extract_all_feasible") = true);
 }
