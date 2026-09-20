@@ -4,7 +4,7 @@ Fork of [PyHygese](https://github.com/chkwon/PyHygese) by [Changhyun Kwon](https
 
 The PyHygese maintainer was not interested in creating binary wheels for publishing in PyPI. This fork enabled that and the creation of a conda-forge package.
 
-Later, the entire codebase was rewritten migrating from a ctypes-based binding (PyHygese) to a nanobind-based one (HybGenSea 0.1.0+). The upstream library repository, [Thibaut Vidal's HGS-CVRP](https://github.com/vidalt/HGS-CVRP), was changed to [my HGS-CVRP fork](https://github.com/mdealencar/HGS-CVRP) to enable further improvements in the Python functionality. The algorithm is still the same and so are the default parameters, which means the two repositories should produce the same solutions.
+Later, the ctypes-based binding from PyHygese was replaced with a nanobind-based binding (HybGenSea 0.1.0+), and much of the Python API was rewritten. Some wrapper code and tests still originate from PyHygese. The upstream library repository, [Thibaut Vidal's HGS-CVRP](https://github.com/vidalt/HGS-CVRP), was changed to [my HGS-CVRP fork](https://github.com/mdealencar/HGS-CVRP) to enable further improvements in the Python functionality. The algorithm is still the same and so are the default parameters, which means the two repositories should produce the same solutions.
 
 ## HybGenSea: Hybrid Genetic Search
 

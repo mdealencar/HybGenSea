@@ -1,7 +1,8 @@
 [project]
 name = "hybgensea"
 version = "0.2.0"
-authors = [{name = "Changhyun Kwon"}, {name = "Mauricio Souza de Alencar", email="ma___@dtu.dk" }]
+authors = [{name = "Changhyun Kwon"}, {name = "Mauricio Souza de Alencar", email="mdealencar@gmx.com" }]
+maintainers = [{name = "Mauricio Souza de Alencar", email="mdealencar@gmx.com"}]
 description = "Wrapper for the Hybrid Genetic Search algorithm for Capacitated Vehicle Routing Problems (HGS-CVRP)"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python=">=3.10"
