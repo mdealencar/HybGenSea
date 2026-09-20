@@ -30,6 +30,18 @@ def _ap_c_args(**overrides):
     )
 
 
+def _coerce_initial_solutions(initial_solutions):
+    """Normalise initial_solutions to list[list[list[int]]] before crossing into C++.
+
+    Doing it here means a malformed entry raises a TypeError/ValueError naming the
+    offending element, rather than a generic nanobind overload-resolution error.
+    """
+    if initial_solutions is None:
+        return []
+    return [[[int(client) for client in route] for route in solution]
+            for solution in initial_solutions]
+
+
 def solve_cvrp_dist_mtx(
     dist_mtx,
     demands,
@@ -40,6 +52,8 @@ def solve_cvrp_dist_mtx(
     service_times=None,
     duration_limit=None,
     num_vehicles=-1,
+    initial_solutions=None,
+    initial_solutions_allow_infeasible=False,
     verbose=True,
     log_callback=None,
     **ap_kwargs,
@@ -55,6 +69,15 @@ def solve_cvrp_dist_mtx(
         service_times: (n,) service duration per node (default: zeros)
         duration_limit: route duration limit (default: unconstrained)
         num_vehicles: maximum number of vehicles (default: unlimited)
+        initial_solutions: solutions used to seed the search, as a list of
+            solutions, each a list of routes, each a list of 1-based client
+            indices (the depot is implicit). This is exactly the shape of
+            RoutingSolution.routes with one more level of nesting, so
+            initial_solutions=[result.routes] re-seeds a previous result.
+            Every client must be visited exactly once per solution and the
+            number of routes must not exceed the fleet size.
+        initial_solutions_allow_infeasible: accept seeds that breach the
+            capacity or duration limits (rejected by default)
         verbose: print solver log
         log_callback: callable receiving each log line
         **ap_kwargs: algorithm parameters (seed, timeLimit, nbGranular, etc.)
@@ -91,6 +114,8 @@ def solve_cvrp_dist_mtx(
         int(num_vehicles),
         *_ap_c_args(**ap_kwargs),
         bool(verbose), log_callback,
+        _coerce_initial_solutions(initial_solutions),
+        bool(initial_solutions_allow_infeasible),
     )
     return RoutingSolution(sol)
 
@@ -104,6 +129,8 @@ def solve_cvrp(
     service_times=None,
     duration_limit=None,
     num_vehicles=-1,
+    initial_solutions=None,
+    initial_solutions_allow_infeasible=False,
     rounding=True,
     verbose=True,
     log_callback=None,
@@ -119,6 +146,15 @@ def solve_cvrp(
         service_times: (n,) service duration per node (default: zeros)
         duration_limit: route duration limit (default: unconstrained)
         num_vehicles: maximum number of vehicles (default: unlimited)
+        initial_solutions: solutions used to seed the search, as a list of
+            solutions, each a list of routes, each a list of 1-based client
+            indices (the depot is implicit). This is exactly the shape of
+            RoutingSolution.routes with one more level of nesting, so
+            initial_solutions=[result.routes] re-seeds a previous result.
+            Every client must be visited exactly once per solution and the
+            number of routes must not exceed the fleet size.
+        initial_solutions_allow_infeasible: accept seeds that breach the
+            capacity or duration limits (rejected by default)
         rounding: round Euclidean distances to integers
         verbose: print solver log
         log_callback: callable receiving each log line
@@ -150,6 +186,8 @@ def solve_cvrp(
         bool(is_duration_constraint), int(num_vehicles),
         *_ap_c_args(**ap_kwargs),
         bool(verbose), log_callback,
+        _coerce_initial_solutions(initial_solutions),
+        bool(initial_solutions_allow_infeasible),
     )
     return RoutingSolution(sol)
 
@@ -159,6 +197,8 @@ def solve_tsp(
     y_coords=None,
     dist_mtx=None,
     *,
+    initial_solutions=None,
+    initial_solutions_allow_infeasible=False,
     rounding=True,
     verbose=True,
     log_callback=None,
@@ -176,7 +216,10 @@ def solve_tsp(
         return solve_cvrp_dist_mtx(
             dist_mtx, demands, float(n),
             x_coords=x_coords, y_coords=y_coords,
-            num_vehicles=1, verbose=verbose, log_callback=log_callback,
+            num_vehicles=1,
+            initial_solutions=initial_solutions,
+            initial_solutions_allow_infeasible=initial_solutions_allow_infeasible,
+            verbose=verbose, log_callback=log_callback,
             **ap_kwargs,
         )
     else:
@@ -188,6 +231,8 @@ def solve_tsp(
         return solve_cvrp(
             x_coords, y_coords, demands, float(n),
             rounding=rounding, num_vehicles=1,
+            initial_solutions=initial_solutions,
+            initial_solutions_allow_infeasible=initial_solutions_allow_infeasible,
             verbose=verbose, log_callback=log_callback,
             **ap_kwargs,
         )
@@ -256,6 +301,9 @@ class Solver:
             num_vehicles=data.get("num_vehicles", -1),
             service_times=data.get("service_times"),
             duration_limit=data.get("duration_limit"),
+            initial_solutions=data.get("initial_solutions"),
+            initial_solutions_allow_infeasible=data.get(
+                "initial_solutions_allow_infeasible", False),
             verbose=self.verbose,
             log_callback=self.log_callback,
             **self._ap_kwargs(),

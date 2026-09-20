@@ -12,6 +12,7 @@
 
 #include "AlgorithmParameters.h"
 #include "Genetic.h"
+#include "Individual.h"
 
 namespace nb = nanobind;
 
@@ -76,6 +77,17 @@ static AlgorithmParameters make_ap(
     return ap;
 }
 
+// Seed the population with caller-supplied solutions before the search starts.
+// updateFeasible is false: that flag feeds the rolling window driving penalty adaptation,
+// which is meant to track local-search output, not injected solutions.
+static void seed_population(Genetic& solver, Params& params,
+                            const std::vector<std::vector<std::vector<int>>>& initial_solutions,
+                            bool allow_infeasible) {
+    for (const auto& routes : initial_solutions) {
+        solver.population.addIndividual(Individual(params, routes, allow_infeasible), false);
+    }
+}
+
 // Extract PySolution from a completed Genetic solver (must be called while owning the data).
 static PySolution extract_solution(Population& population, const Params& params) {
     PySolution result{};
@@ -136,7 +148,9 @@ NB_MODULE(_core, m) {
                             int nbIter, int nbIterTraces, double timeLimit,
                             bool useSwapStar,
                             bool verbose,
-                            nb::handle log_callback) {
+                            nb::handle log_callback,
+                            std::vector<std::vector<std::vector<int>>> initial_solutions,
+                            bool initial_solutions_allow_infeasible) {
         const int n = static_cast<int>(x.shape(0));
         AlgorithmParameters ap = make_ap(nbGranular, mu, lambda_, nbElite, nbClose,
                                          nbIterPenaltyManagement, targetFeasible,
@@ -168,6 +182,8 @@ NB_MODULE(_core, m) {
                           vehicleCapacity, durationLimit, max_nbVeh,
                           isDurationConstraint, verbose, ap, log_stream);
             Genetic solver(params);
+            seed_population(solver, params, initial_solutions,
+                            initial_solutions_allow_infeasible);
             solver.run();
             result = extract_solution(solver.population, params);
         }
@@ -183,7 +199,9 @@ NB_MODULE(_core, m) {
     nb::arg("penaltyDecrease"), nb::arg("penaltyIncrease"), nb::arg("seed"),
     nb::arg("nbIter"), nb::arg("nbIterTraces"), nb::arg("timeLimit"),
     nb::arg("useSwapStar"),
-    nb::arg("verbose"), nb::arg("log_callback").none() = nb::none());
+    nb::arg("verbose"), nb::arg("log_callback").none() = nb::none(),
+    nb::arg("initial_solutions") = std::vector<std::vector<std::vector<int>>>(),
+    nb::arg("initial_solutions_allow_infeasible") = false);
 
     // solve_cvrp_dist_mtx: with pre-computed distance matrix (zero-copy from numpy)
     m.def("solve_cvrp_dist_mtx", [](nb::ndarray<double, nb::ndim<1>, nb::c_contig> x,
@@ -201,7 +219,9 @@ NB_MODULE(_core, m) {
                                      int nbIter, int nbIterTraces, double timeLimit,
                                      bool useSwapStar,
                                      bool verbose,
-                                     nb::handle log_callback) {
+                                     nb::handle log_callback,
+                                     std::vector<std::vector<std::vector<int>>> initial_solutions,
+                                     bool initial_solutions_allow_infeasible) {
         const int n = static_cast<int>(x.shape(0));
         AlgorithmParameters ap = make_ap(nbGranular, mu, lambda_, nbElite, nbClose,
                                          nbIterPenaltyManagement, targetFeasible,
@@ -221,6 +241,8 @@ NB_MODULE(_core, m) {
                           vehicleCapacity, durationLimit, max_nbVeh,
                           isDurationConstraint, verbose, ap, log_stream);
             Genetic solver(params);
+            seed_population(solver, params, initial_solutions,
+                            initial_solutions_allow_infeasible);
             solver.run();
             result = extract_solution(solver.population, params);
         }
@@ -237,5 +259,7 @@ NB_MODULE(_core, m) {
     nb::arg("penaltyDecrease"), nb::arg("penaltyIncrease"), nb::arg("seed"),
     nb::arg("nbIter"), nb::arg("nbIterTraces"), nb::arg("timeLimit"),
     nb::arg("useSwapStar"),
-    nb::arg("verbose"), nb::arg("log_callback").none() = nb::none());
+    nb::arg("verbose"), nb::arg("log_callback").none() = nb::none(),
+    nb::arg("initial_solutions") = std::vector<std::vector<std::vector<int>>>(),
+    nb::arg("initial_solutions_allow_infeasible") = false);
 }
