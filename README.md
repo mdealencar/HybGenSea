@@ -4,15 +4,13 @@ Fork of [PyHygese](https://github.com/chkwon/PyHygese) by [Changhyun Kwon](https
 
 The PyHygese maintainer was not interested in creating binary wheels for publishing in PyPI. This fork enabled that and the creation of a conda-forge package.
 
-Later, the ctypes-based binding from PyHygese was replaced with a nanobind-based binding (HybGenSea 0.1.0+), and much of the Python API was rewritten. Some wrapper code and tests still originate from PyHygese. The upstream library repository, [Thibaut Vidal's HGS-CVRP](https://github.com/vidalt/HGS-CVRP), was changed to [my HGS-CVRP fork](https://github.com/mdealencar/HGS-CVRP) to enable further improvements in the Python functionality. The algorithm is still the same and so are the default parameters, which means the two repositories should produce the same solutions.
+Later, the ctypes-based binding from PyHygese was replaced with a nanobind-based binding (HybGenSea 0.1.0+), and much of the Python API was rewritten. Some wrapper code and tests still originate from PyHygese. HybGenSea also switched the upstream library repository from [Thibaut Vidal's HGS-CVRP](https://github.com/vidalt/HGS-CVRP) to a [fork dedicated to HybGenSea](https://github.com/mdealencar/HGS-CVRP). This fork enables further improvements in the Python functionality and contains extra local search moves for asymmetric distance matrices. Differences are summarized in [Motivation for the fork (HGS-CVRP)](https://github.com/mdealencar/HGS-CVRP#motivation-for-the-fork), while the [CHANGELOG](CHANGELOG.md) details its impacts on HybGenSea.
 
 ## HybGenSea: Hybrid Genetic Search
 
 **A solver for the Capacitated Vehicle Routing Problem (CVRP)**
 
-This package provides a simple Python wrapper for the Hybrid Genetic Search solver for Capacitated Vehicle Routing Problems [(HGS-CVRP)](https://github.com/vidalt/HGS-CVRP).
-
-It is built from [a fork of HGS-CVRP](https://github.com/mdealencar/HGS-CVRP) whose local search has extra moves for asymmetric distance matrices; coordinates and symmetric matrices give the same results as the original (see the [CHANGELOG](CHANGELOG.md)).
+This package provides a simple Python wrapper for the Hybrid Genetic Search solver for Capacitated Vehicle Routing Problems [(HGS-CVRP)](https://github.com/mdealencar/HGS-CVRP).
 
 ## Installation
 
