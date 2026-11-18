@@ -12,6 +12,8 @@ Later, the ctypes-based binding from PyHygese was replaced with a nanobind-based
 
 This package provides a simple Python wrapper for the Hybrid Genetic Search solver for Capacitated Vehicle Routing Problems [(HGS-CVRP)](https://github.com/vidalt/HGS-CVRP).
 
+It is built from [a fork of HGS-CVRP](https://github.com/mdealencar/HGS-CVRP) whose local search has extra moves for asymmetric distance matrices; coordinates and symmetric matrices give the same results as the original (see the [CHANGELOG](CHANGELOG.md)).
+
 ## Installation
 
 ```
