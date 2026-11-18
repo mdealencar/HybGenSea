@@ -1,3 +1,15 @@
+# Unreleased
+
+## Important Changes
+
+- The local search handles asymmetric distance matrices better: it reverses a whole route, or a route after its first client, whenever that is cheaper. When the asymmetry is confined to the depot connections (e.g. an open CVRP with free return legs, as in `dist_mtx[:, 0] = 0`), SWAP* also prices each route in its cheaper orientation; clients whose connections with the depot are free both ways (depot clones) are left out of that pricing.
+- Solutions for asymmetric distance matrices therefore differ from those of v0.2.0 at the same seed. In benchmarks under a CPU-time limit, they were about 0.02% cheaper on average for general asymmetric matrices, and no different for an open CVRP with free return legs, whose iterations take up to about 1% more time. Coordinate inputs and symmetric matrices give the same solutions as before, at no measurable extra time.
+- Runs stopped by `nbIter` (iterations without improvement) on asymmetric matrices may last more iterations than before; runs stopped by `timeLimit` are unaffected.
+
+## Packaging & Maintenance
+
+- Updated the pinned HGS-CVRP commit, which adds the route reversal moves and the orientation-aware SWAP*.
+
 # v0.2.0
 
 [Commit history since v0.1.1](https://github.com/mdealencar/HybGenSea/compare/v0.1.1...v0.2.0)
