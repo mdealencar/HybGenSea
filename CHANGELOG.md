@@ -1,4 +1,6 @@
-# Unreleased
+# v0.3.0
+
+[Commit history since v0.2.0](https://github.com/mdealencar/HybGenSea/compare/v0.2.0...v0.3.0)
 
 ## Important Changes
 
