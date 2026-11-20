@@ -15,13 +15,8 @@ project(
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include(FetchContent)
-FetchContent_Declare(
-  hgscvrp
-  GIT_REPOSITORY https://github.com/mdealencar/HGS-CVRP.git
-  GIT_TAG f60dd6108fcaf9e4516ecb288edaf41bdf6bd809
-)
-FetchContent_MakeAvailable(hgscvrp)
+# Only objlib is needed: skip the upstream shared library
+add_subdirectory(HGS-CVRP EXCLUDE_FROM_ALL)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 execute_process(
@@ -36,8 +31,11 @@ if(NOT nanobind_exit_code EQUAL 0)
 endif()
 find_package(nanobind CONFIG REQUIRED)
 
-nanobind_add_module(_core hybgensea/_core.cpp)
-target_include_directories(_core PRIVATE ${hgscvrp_SOURCE_DIR}/Program)
+# FREE_THREADED declares the module safe without the GIL on free-threaded CPython
+# (ignored on regular builds): the solver keeps no shared state, so concurrent
+# solves are independent, and results are read-only once returned.
+nanobind_add_module(_core FREE_THREADED hybgensea/_core.cpp)
+target_include_directories(_core PRIVATE HGS-CVRP/Program)
 target_link_libraries(_core PRIVATE objlib)
 
 install(TARGETS _core LIBRARY DESTINATION hybgensea)

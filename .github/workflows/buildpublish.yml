@@ -12,11 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: true
       - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
+      # Builds the sdist, then a wheel from it: proves the sdist is complete
       - name: Build SDist
-        run: pipx run build --sdist
+        run: pipx run build
       - uses: actions/upload-artifact@v7
         with:
           name: cibw-sdist
@@ -33,6 +36,9 @@ jobs:
             manylinux: manylinux2014
             manylinux_x86_64_image: manylinux2014
             cibw_build: "*manylinux*"
+            # numpy has no glibc 2.17 wheels for Python 3.14+: those builds are
+            # tested by the manylinux_2_28 and manylinux_2_34 jobs instead
+            test_skip: "cp314* cp315*"
           - os: ubuntu-latest
             manylinux: manylinux_2_28
             manylinux_x86_64_image: manylinux_2_28
@@ -53,12 +59,18 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-      - uses: pypa/cibuildwheel@v4.2
+      - uses: pypa/cibuildwheel@v4.3.5
         env:
           CIBW_BUILD: ${{ matrix.cibw_build || '*' }}
           CIBW_ARCHS: auto64
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_x86_64_image || '' }}
           CIBW_MUSLLINUX_X86_64_IMAGE: ${{ matrix.musllinux || '' }}
+          # Each built wheel is installed in a clean venv and tested
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: pytest --pyargs hybgensea.tests
+          CIBW_TEST_SKIP: ${{ matrix.test_skip || '' }}
+          # Pick the newest numpy with a wheel rather than compiling one from source
+          CIBW_TEST_ENVIRONMENT: PIP_ONLY_BINARY=numpy
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
@@ -66,6 +78,8 @@ jobs:
           path: wheelhouse/*.whl
   publish_all:
     name: Publish on PyPI
+    # Manual runs only build and test
+    if: github.ref_type == 'tag'
     needs: [build_wheels, make_sdist]
     runs-on: ubuntu-latest
     environment: pypi
@@ -88,3 +102,43 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+  github_release:
+    name: Create GitHub Release
+    if: github.ref_type == 'tag'
+    needs: [build_wheels, make_sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create a release and upload assets
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+      - name: Get tag message
+        id: tag_data
+        run: |
+          # actions/checkout replaces the annotated tag with a lightweight one
+          git fetch --force origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
+          tag_message="$(git tag -l --format='%(contents)' ${{ github.ref_name }} | sed '/---BEGIN.*SIGNATURE---/,$d')"
+          printf "=== ${{ github.ref_name }} ===\n%s\n=====================\n" "$tag_message"
+          {
+            echo 'tag_message<<EOF'
+            printf '%s\n' "$tag_message"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: "HybGenSea ${{ github.ref_name }}"
+          body: ${{ steps.tag_data.outputs.tag_message }}
+          files: |
+            dist/*.tar.gz
+            dist/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

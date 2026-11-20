@@ -6,16 +6,18 @@ maintainers = [{name = "Mauricio Souza de Alencar", email="mdealencar@gmx.com"}]
 description = "Wrapper for the Hybrid Genetic Search algorithm for Capacitated Vehicle Routing Problems (HGS-CVRP)"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python=">=3.10"
+dependencies = ["numpy"]
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "HGS-CVRP/LICENSE"]
 
 [project.urls]
 "Issue Tracker" = "https://github.com/mdealencar/HybGenSea/issues"
 "Source" = "https://github.com/mdealencar/HybGenSea"
 
 [build-system]
-requires = ["scikit-build-core", "nanobind"]
+requires = ["scikit-build-core", "nanobind>=2.2"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
 cmake.build-type = "Release"
+sdist.exclude = ["HGS-CVRP/.github", "HGS-CVRP/Instances", "HGS-CVRP/Test"]

@@ -310,7 +310,8 @@ class _SubPopulation(Sequence):
             raise IndexError(index)
         individual = self._cache.get(index)
         if individual is None:
-            individual = self._cache[index] = Individual(self._get(index))
+            # setdefault is atomic: threads racing on a miss all get the same object
+            individual = self._cache.setdefault(index, Individual(self._get(index)))
         return individual
 
     def __repr__(self):

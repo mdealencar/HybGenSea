@@ -156,11 +156,13 @@ NB_MODULE(_core, m) {
         .def_ro("n_routes", &PyIndividual::n_routes)
         .def_prop_ro("routes", [](const PyIndividual& self) { return self.routes; });
 
+    // Read-only: without the GIL, a write racing a read of routes or log would be a
+    // data race on the underlying std::vector/std::string.
     nb::class_<PySolution>(m, "_PySolution")
-        .def_rw("cost", &PySolution::cost)
-        .def_rw("time", &PySolution::time)
-        .def_rw("routes", &PySolution::routes)
-        .def_rw("log", &PySolution::log)
+        .def_ro("cost", &PySolution::cost)
+        .def_ro("time", &PySolution::time)
+        .def_ro("routes", &PySolution::routes)
+        .def_ro("log", &PySolution::log)
         .def_ro("n_feasible", &PySolution::n_feasible)
         .def_ro("extracted_all_feasible", &PySolution::extracted_all_feasible)
         // reference_internal wraps the member in place and keeps the parent alive,

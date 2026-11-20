@@ -1,3 +1,21 @@
+# Unreleased
+
+[Commit history since v0.3.0](https://github.com/mdealencar/HybGenSea/compare/v0.3.0...HEAD)
+
+## Important Changes
+
+- Wheels are published for free-threaded CPython 3.14t and 3.15t, and importing the package keeps the GIL disabled there. Solves started from several threads run fully in parallel, and returned results can be read from any thread.
+- The fields of the internal `_core._PySolution` result are now read-only; `RoutingSolution` is unaffected.
+
+## Packaging & Maintenance
+
+- The HGS-CVRP sources are now a git submodule and are shipped inside the sdist, so building from the sdist no longer needs git or network access to fetch them. When building from a git checkout, initialize the submodule first (`git clone --recurse-submodules`, or `git submodule update --init`).
+- The build compiles only the HGS-CVRP objects that the extension links, and no longer builds the unused upstream shared library.
+- `numpy` is now declared as a dependency; it was always imported but was missing from the package metadata.
+- The HGS-CVRP license is included in the sdist and wheels.
+- Each tagged release also creates a GitHub Release with the sdist and wheels attached.
+- The CI workflow builds the sdist, installs the package from it and runs the tests on Linux, Windows and macOS. Every release wheel is also installed and tested before publishing.
+
 # v0.3.0
 
 [Commit history since v0.2.0](https://github.com/mdealencar/HybGenSea/compare/v0.2.0...v0.3.0)
