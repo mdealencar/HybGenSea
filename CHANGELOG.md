@@ -11,6 +11,7 @@
 
 - The HGS-CVRP sources are now a git submodule and are shipped inside the sdist, so building from the sdist no longer needs git or network access to fetch them. When building from a git checkout, initialize the submodule first (`git clone --recurse-submodules`, or `git submodule update --init`).
 - The build compiles only the HGS-CVRP objects that the extension links, and no longer builds the unused upstream shared library.
+- The package version is taken from the git tag by setuptools-scm instead of being set in `pyproject.toml`, and is available as `hybgensea.__version__`.
 - `numpy` is now declared as a dependency; it was always imported but was missing from the package metadata.
 - The HGS-CVRP license is included in the sdist and wheels.
 - The GitHub workflows are reorganized by purpose. `Test` runs on each push and pull request: it builds the sdist, installs the package from it and runs the tests on Linux, Windows and macOS. `Build` makes the sdist and every wheel and tests each wheel; it can be run by hand to check a release without publishing. `Release` runs `Build` on version tags, then publishes to PyPI and creates a GitHub Release with the sdist and wheels attached.
