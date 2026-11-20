@@ -2,6 +2,11 @@
 
 [Commit history since v0.3.0](https://github.com/mdealencar/HybGenSea/compare/v0.3.0...HEAD)
 
+## Important Changes
+
+- Wheels are published for free-threaded CPython 3.14t and 3.15t, and importing the package keeps the GIL disabled there. Solves started from several threads run fully in parallel, and returned results can be read from any thread.
+- The fields of the internal `_core._PySolution` result are now read-only; `RoutingSolution` is unaffected.
+
 ## Packaging & Maintenance
 
 - The HGS-CVRP sources are now a git submodule and are shipped inside the sdist, so building from the sdist no longer needs git or network access to fetch them. When building from a git checkout, initialize the submodule first (`git clone --recurse-submodules`, or `git submodule update --init`).

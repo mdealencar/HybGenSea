@@ -31,7 +31,10 @@ if(NOT nanobind_exit_code EQUAL 0)
 endif()
 find_package(nanobind CONFIG REQUIRED)
 
-nanobind_add_module(_core hybgensea/_core.cpp)
+# FREE_THREADED declares the module safe without the GIL on free-threaded CPython
+# (ignored on regular builds): the solver keeps no shared state, so concurrent
+# solves are independent, and results are read-only once returned.
+nanobind_add_module(_core FREE_THREADED hybgensea/_core.cpp)
 target_include_directories(_core PRIVATE HGS-CVRP/Program)
 target_link_libraries(_core PRIVATE objlib)
 

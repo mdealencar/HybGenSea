@@ -15,7 +15,7 @@ license-files = ["LICENSE", "HGS-CVRP/LICENSE"]
 "Source" = "https://github.com/mdealencar/HybGenSea"
 
 [build-system]
-requires = ["scikit-build-core", "nanobind"]
+requires = ["scikit-build-core", "nanobind>=2.2"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
