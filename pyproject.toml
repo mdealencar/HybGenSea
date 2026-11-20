@@ -6,6 +6,7 @@ maintainers = [{name = "Mauricio Souza de Alencar", email="mdealencar@gmx.com"}]
 description = "Wrapper for the Hybrid Genetic Search algorithm for Capacitated Vehicle Routing Problems (HGS-CVRP)"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python=">=3.10"
+dependencies = ["numpy"]
 license = "MIT"
 license-files = ["LICENSE", "HGS-CVRP/LICENSE"]
 
