@@ -1,0 +1,80 @@
+# Builds the sdist and every wheel, and tests each wheel. Publishes nothing:
+# run it by hand to check a release beforehand; release.yml calls it on tags.
+# The results are uploaded as artifacts named dist-*.
+name: Build
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      # Builds the sdist, then a wheel from it: proves the sdist is complete
+      - name: Build sdist
+        run: pipx run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+
+  wheels:
+    name: Build wheels (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux: one job per glibc baseline
+          - label: manylinux2014
+            os: ubuntu-latest
+            cibw_build: "*manylinux*"
+            manylinux_image: manylinux2014
+            # numpy has no glibc 2.17 wheels for Python 3.14+: those builds are
+            # tested by the manylinux_2_28 and manylinux_2_34 jobs instead
+            test_skip: "cp314* cp315*"
+          - label: manylinux_2_28
+            os: ubuntu-latest
+            cibw_build: "*manylinux*"
+            manylinux_image: manylinux_2_28
+          - label: manylinux_2_34
+            os: ubuntu-latest
+            cibw_build: "*manylinux*"
+            manylinux_image: manylinux_2_34
+          - label: musllinux_1_2
+            os: ubuntu-latest
+            cibw_build: "*musllinux*"
+            musllinux_image: musllinux_1_2
+          - label: windows
+            os: windows-latest
+          - label: macos-arm64
+            os: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: true
+      - uses: pypa/cibuildwheel@v4.3.5
+        env:
+          CIBW_BUILD: ${{ matrix.cibw_build || '*' }}
+          CIBW_ARCHS: auto64
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image || '' }}
+          CIBW_MUSLLINUX_X86_64_IMAGE: ${{ matrix.musllinux_image || '' }}
+          # Each built wheel is installed in a clean venv and tested
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: pytest --pyargs hybgensea.tests
+          CIBW_TEST_SKIP: ${{ matrix.test_skip || '' }}
+          # Pick the newest numpy with a wheel rather than compiling one from source
+          CIBW_TEST_ENVIRONMENT: PIP_ONLY_BINARY=numpy
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-wheels-${{ matrix.label }}
+          path: wheelhouse/*.whl

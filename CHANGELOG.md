@@ -13,8 +13,7 @@
 - The build compiles only the HGS-CVRP objects that the extension links, and no longer builds the unused upstream shared library.
 - `numpy` is now declared as a dependency; it was always imported but was missing from the package metadata.
 - The HGS-CVRP license is included in the sdist and wheels.
-- Each tagged release also creates a GitHub Release with the sdist and wheels attached.
-- The CI workflow builds the sdist, installs the package from it and runs the tests on Linux, Windows and macOS. Every release wheel is also installed and tested before publishing.
+- The GitHub workflows are reorganized by purpose. `Test` runs on each push and pull request: it builds the sdist, installs the package from it and runs the tests on Linux, Windows and macOS. `Build` makes the sdist and every wheel and tests each wheel; it can be run by hand to check a release without publishing. `Release` runs `Build` on version tags, then publishes to PyPI and creates a GitHub Release with the sdist and wheels attached.
 
 # v0.3.0
 

@@ -1,0 +1,76 @@
+# Pushing a version tag builds and tests everything (build.yml), then publishes
+# the sdist and wheels to PyPI and creates the GitHub Release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+
+  pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # PyPI trusted publishing is bound to this workflow file and environment
+    environment: pypi
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Generate artifact attestations
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: "dist/*"
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+  github_release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create a release and upload assets
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Get tag message
+        id: tag_data
+        run: |
+          # actions/checkout replaces the annotated tag with a lightweight one
+          git fetch --force origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
+          tag_message="$(git tag -l --format='%(contents)' ${{ github.ref_name }} | sed '/---BEGIN.*SIGNATURE---/,$d')"
+          printf "=== ${{ github.ref_name }} ===\n%s\n=====================\n" "$tag_message"
+          {
+            echo 'tag_message<<EOF'
+            printf '%s\n' "$tag_message"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: "HybGenSea ${{ github.ref_name }}"
+          body: ${{ steps.tag_data.outputs.tag_message }}
+          files: |
+            dist/*.tar.gz
+            dist/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
