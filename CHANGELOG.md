@@ -1,3 +1,13 @@
+# Unreleased
+
+[Commit history since v0.3.0](https://github.com/mdealencar/HybGenSea/compare/v0.3.0...HEAD)
+
+## Packaging & Maintenance
+
+- The HGS-CVRP sources are now a git submodule and are shipped inside the sdist, so building from the sdist no longer needs git or network access to fetch them. When building from a git checkout, initialize the submodule first (`git clone --recurse-submodules`, or `git submodule update --init`).
+- The build compiles only the HGS-CVRP objects that the extension links, and no longer builds the unused upstream shared library.
+- The HGS-CVRP license is included in the sdist and wheels.
+
 # v0.3.0
 
 [Commit history since v0.2.0](https://github.com/mdealencar/HybGenSea/compare/v0.2.0...v0.3.0)

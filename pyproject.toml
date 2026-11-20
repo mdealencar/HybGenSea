@@ -7,7 +7,7 @@ description = "Wrapper for the Hybrid Genetic Search algorithm for Capacitated V
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python=">=3.10"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "HGS-CVRP/LICENSE"]
 
 [project.urls]
 "Issue Tracker" = "https://github.com/mdealencar/HybGenSea/issues"
@@ -19,3 +19,4 @@ build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
 cmake.build-type = "Release"
+sdist.exclude = ["HGS-CVRP/.github", "HGS-CVRP/Instances", "HGS-CVRP/Test"]

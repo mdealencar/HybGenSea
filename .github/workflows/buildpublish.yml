@@ -12,11 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: true
       - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
+      # Builds the sdist, then a wheel from it: proves the sdist is complete
       - name: Build SDist
-        run: pipx run build --sdist
+        run: pipx run build
       - uses: actions/upload-artifact@v7
         with:
           name: cibw-sdist
