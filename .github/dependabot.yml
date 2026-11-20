@@ -1,0 +1,19 @@
+# Opens pull requests against the default branch (HybGenSea) when the GitHub
+# Actions used by the workflows have new releases.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: cicd
+    groups:
+      # Actions pinned to a major tag only get a pull request on a new major
+      # version: batch those into one.
+      actions:
+        patterns: ["*"]
+        # cibuildwheel is pinned exactly and decides which wheels are built:
+        # keep each of its releases in a pull request of its own, and run the
+        # Build workflow on that branch by hand before merging.
+        exclude-patterns: ["pypa/cibuildwheel"]
